@@ -1,165 +1,191 @@
 ## ⛔Never push sensitive information such as client id's, secrets or keys into repositories including in the README file⛔
 
-# _Project Name_
+# das-hmrc-mock-api
 
 <img src="https://avatars.githubusercontent.com/u/9841374?s=200&v=4" align="right" alt="UK Government logo">
 
-_Update these badges with the correct information for this project. These give the status of the project at a glance and also sign-post developers to the appropriate resources they will need to get up and running_
-
-[![Build Status](https://dev.azure.com/sfa-gov-uk/Digital%20Apprenticeship%20Service/_apis/build/status/_projectname_?branchName=master)](https://dev.azure.com/sfa-gov-uk/Digital%20Apprenticeship%20Service/_build/latest?definitionId=_projectid_&branchName=master)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=_projectId_&metric=alert_status)](https://sonarcloud.io/dashboard?id=_projectId_)
+[![Build Status](https://dev.azure.com/sfa-gov-uk/Digital%20Apprenticeship%20Service/_apis/build/status%2Fdas-hmrc-mock-api?repoName=SkillsFundingAgency%2Fdas-hmrc-mock-api&branchName=main)](https://dev.azure.com/sfa-gov-uk/Digital%20Apprenticeship%20Service/_build/latest?definitionId=3649&repoName=SkillsFundingAgency%2Fdas-hmrc-mock-api&branchName=main)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=SkillsFundingAgency_das-hmrc-mock-api&metric=alert_status)](https://sonarcloud.io/dashboard?id=SkillsFundingAgency_das-hmrc-mock-api)
 [![Jira Project](https://img.shields.io/badge/Jira-Project-blue)](https://skillsfundingagency.atlassian.net/secure/RapidBoard.jspa?rapidView=564&projectKey=_projectKey_)
 [![Confluence Project](https://img.shields.io/badge/Confluence-Project-blue)](https://skillsfundingagency.atlassian.net/wiki/spaces/_pageurl_)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg?longCache=true&style=flat-square)](https://en.wikipedia.org/wiki/MIT_License)
 
-_Add a description of the project and the high-level features that it provides. This should give new developers an understanding of the background of the project and the reason for its existence._
+HMRC Apprenticeship Levy API mock used by lower environments in place of the real HMRC levy APIs. It provides:
 
-_For Example_
-
-```
-The ServiceBus Support Utility is an Azure ServiceBus Queue management tool that allows you to manage messages that have moved to error queues without having to resort to managing each message individually.
-
-1. Utilises Azure Active Directory for Authentication
-2. Automatically enumerates error queues within the Azure Service Bus namespace
-3. Messages can be retrieved per queue
-4. Retrieved messages can be:
-    - Aborted - all retrieved messages will be placed back on the queue they were received from
-    - Replayed - messages will be moved back onto the original processing queue so that they can be processed again
-    - Deleted - messages will be removed and will be no longer available for processing
-```
+1. Gateway sign-in UI for creating test employers (`LE_` / `NL_` user id conventions)
+2. HMRC-shaped REST endpoints for levy declarations and English fractions
+3. MongoDB-backed declaration storage for test emprefs
+4. A test-only HTTP endpoint to append importable declarations for existing emprefs (E2E testing)
 
 ## How It Works
 
-_Add a description of how the project works technically, this should give new developers an insight into the how the project hangs together, the core concepts in-use and the high-level features that it provides_
+The web host (`SFA.DAS.HmrcMock.Web`) loads configuration from Azure Table Storage (standard DAS pattern), connects to MongoDB for gateway users / emprefs / declarations / fractions, and optionally uses Redis for data protection keys.
 
-_For Example_
-```
-The ServiceBus Utility is a combination of website and background processor that enumerates Azure Service Bus queues within a namespace using the error queue naming convention and presents them to the user as a selectable list, allowing messages on a queue to be retrieved for investigation. Once a queue has been selected the website will retrieve the messages from the error queue and place them into a CosmosDB under the exclusive possession of the logged in user. Once the messages have been moved into the CosmosDB the background processor will ensure that those messages are held for a maximum sliding time period of 24 hours. If messages are still present after this period expires the background processer will move them back to the error queue automatically so that they aren't held indefinitely.
+Consumer services (for example Employer Finance MessageHandlers) call authenticated HMRC-shaped routes such as:
 
-Depending on the action performed by the user the messages will follow one of three paths. In the event that the user Aborts the process, the messages are moved back to the error queue they came from, if the user replays the messages they will be placed back onto the "processing queue" they were on prior to ending up in the error queue and will be removed from the CosmosDB. If the user deletes the messages then they will be removed from the CosmosDB and will be gone forever.
-```
+* `GET /api/apprenticeship-levy/epaye/{empRef}/declarations`
+* `GET /api/apprenticeship-levy/epaye/{empRef}/fractions`
+
+Declarations for an empRef live in the MongoDB `declarations` collection. Historical declarations can be seeded at sign-in; additional importable declarations can be appended via the test endpoint described below.
 
 ## 🚀 Installation
 
 ### Pre-Requisites
 
-_Add the pre-requisites needed to successfully run the project so that new developers know how they are to setup their development environment_
-
-_For Example_
-```
 * A clone of this repository
-* A code editor that supports Azure functions and .NetCore 3.1
-* A CosmosDB instance or emulator
-* An Azure Service Bus instance
-* An Azure Active Directory account with the appropriate roles as per the [config](https://github.com/SkillsFundingAgency/das-employer-config/blob/master/das-tools-servicebus-support/SFA.DAS.Tools.Servicebus.Support.json)
-* The [das-audit](https://github.com/SkillsFundingAgency/das-audit) API available either running locally or accessible in an Azure tenancy    
-```
+* .NET 10 SDK
+* A code editor / IDE that supports ASP.NET Core
+* A MongoDB instance (local or shared lower-env cluster)
+* Azure Storage emulator (for example Azurite) when using `UseDevelopmentStorage=true` for table config locally
+* Redis connection details if running data protection locally as configured
+
 ### Config
 
-_Add details of the configuration required to successfully run the project. Adding in the config structure from the das-employer-config repo will help new developers understand what the config looks like and detailing the row keys and partition keys of any config rows will make it obvious where the config needs to be for the project to find it. Adding any further config which does not live in das-employer-config will also assist new developers to get the project running._
+This service uses the standard Apprenticeship Service configuration. Config lives in the [das-employer-config repository](https://github.com/SkillsFundingAgency/das-employer-config/tree/master/das-hmrc-mock-api).
 
-> _If you do add config directly to the README you will be required to keep it up-to-date with any changes made to it in the [das-employer-config repository](https://github.com/SkillsFundingAgency/das-employer-config), for this reason it is suggested that you also provide links to the config in that respoitory so that the latest changes are always available_
+* Ensure Azure Table Storage (or Azurite) contains the config row for the environment
+* Mongo connection string is mapped from env var `MongoUri` (`MongoDbOptions:ConnectionString`)
+* Redis / data protection settings are under `HmrcMockConfiguration`
 
-_For Example_
-```
-This utility uses the standard Apprenticeship Service configuration. All configuration can be found in the [das-employer-config repository](https://github.com/SkillsFundingAgency/das-employer-config).
-
-* A connection string for either the Apprenticeship Services ASB namespace or a namespace you own for development
-* A CosmosDB connection string for either the Apprenticeship Service instance CosmosDB or a CosmosDB you own for development (you can use the emulator)
-* Configure the [das-audit](https://github.com/SkillsFundingAgency/das-audit) project as per [das-employer-config](https://github.com/SkillsFundingAgency/das-employer-config/blob/master/das-audit/SFA.DAS.AuditApiClient.json)
-* Add an appsettings.Development.json file
-    * Add your connection strings for CosmosDB and ASB to the relevant sections of the file
-* The CosmosDB will be created automatically if it does not already exist and the credentials you are connected with have the appropriate rights within the Azure tenant otherwise it will need to be created manually using the details in the config below under `CosmosDbSettings`.
-```
-AppSettings.Development.json file
-```json
-{
-    "Logging": {
-      "LogLevel": {
-        "Default": "Information",
-        "Microsoft": "Warning",
-        "Microsoft.Hosting.Lifetime": "Information"
-      }
-    },
-    "ConfigurationStorageConnectionString": "UseDevelopmentStorage=true;",
-    "ConfigNames": "SFA.DAS.Tools.Servicebus.Support,SFA.DAS.AuditApiClient",
-    "EnvironmentName": "LOCAL",
-    "Version": "1.0",
-    "APPINSIGHTS_INSTRUMENTATIONKEY": ""
-  }  
-```
-
-Azure Table Storage config
-
-Row Key: SFA.DAS.Tools.Servicebus.Support_1.0
-
-Partition Key: LOCAL
-
-Data:
+`appsettings.json` (local defaults):
 
 ```json
 {
-  "BaseUrl": "localhost:5001",
-  "UserIdentitySettings":{
-    "RequiredRole": "Servicebus Admin", 
-    "UserSessionExpiryHours": 24,
-    "UserRefreshSessionIntervalMinutes": 5,
-    "NameClaim": "name"
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning"
+    }
   },
-  "ServiceBusSettings":{
-    "ServiceBusConnectionString": "",
-    "QueueSelectionRegex": "[-,_]+error",
-    "PeekMessageBatchSize": 10,
-    "MaxRetrievalSize": 250,
-    "ErrorQueueRegex": "[-,_]error[s]*$",
-    "RedactPatterns": [
-      "(.*SharedAccessKey=)([\\s\\S]+=)(.*)"
-    ]
-  },
-  "CosmosDbSettings":{
-    "Url": "",
-    "AuthKey": "",
-    "DatabaseName": "QueueExplorer",
-    "CollectionName": "Session",
-    "Throughput": 400,
-    "DefaultCosmosOperationTimeout": 55,
-    "DefaultCosmosInterimRequestTimeout": 2
+  "ConfigurationStorageConnectionString": "UseDevelopmentStorage=true;",
+  "ConfigNames": "SFA.DAS.HmrcMock.Web",
+  "EnvironmentName": "LOCAL",
+  "Version": "1.0",
+  "APPINSIGHTS_INSTRUMENTATIONKEY": "",
+  "AllowedHosts": "*",
+  "cdn": {
+    "url": "https://das-at-frnt-end.azureedge.net"
   }
 }
 ```
 
+Azure Table Storage config (see also [SFA.DAS.HmrcMock.json](https://github.com/SkillsFundingAgency/das-employer-config/blob/master/das-hmrc-mock-api/SFA.DAS.HmrcMock.json)):
+
+Row Key / Partition Key follow the usual DAS naming for `ConfigNames` + `Version` + `EnvironmentName`.
+
+Example payload shape:
+
+```json
+{
+  "HmrcMockConfiguration": {
+    "DataProtectionKeysDatabase": "DefaultDatabase=3",
+    "RedisConnectionString": "<redis-connection-string>"
+  },
+  "MongoDbOptions": {
+    "ConnectionString": "mongodb+srv://<username>:<password>@<server>/<database>?retryWrites=true&w=majority"
+  }
+}
+```
+
+### Running locally
+
+```bash
+dotnet restore
+dotnet run --project src/SFA.DAS.HmrcMock.Web/SFA.DAS.HmrcMock.Web.csproj
+```
+
+Confirm Mongo and table storage config resolve before exercising sign-in or API routes.
+
+## Seeding and test declarations
+
+### New levy employer (sign-in)
+
+Sign in via the gateway UI with a user id matching `LE_{count}_{amount}` (e.g. `LE_12_1000`). That creates a user, empRef, fractions, and `{count}` historical declarations with allowance `15000`.
+
+`NL_{count}_{amount}` creates a non-levy user without declarations.
+
+### Append an importable declaration (test HTTP)
+
+Use this to add a declaration for an **existing** empRef so Employer Finance can import it.
+
+```http
+POST {HmrcMockBaseUrl}/api/test/declarations
+Content-Type: application/json
+
+{
+  "empRef": "123/AB12345",
+  "levyDueYTD": 1000,
+  "levyAllowanceForFullYear": 15000
+}
+```
+
+* Put `empRef` in the **JSON body** (it contains `/`). Do not put it in the URL path.
+* Omit period fields → mock chooses the **latest Finance-importable** payroll period (not necessarily the current calendar month).
+* Response echoes the declaration including `payrollPeriod` and `submissionTime`.
+* Re-posting for the same payroll year/month **replaces** that declaration.
+
+#### Importable period rule (Finance)
+
+Finance drops “future” payroll periods. Period start is the **20th** of the calendar month; a period for calendar month **M** is importable only when **Now >= 20th of month M+1**.
+
+This is **not** the employer home “levy due by 19th” UI banner (days 16–19).
+
+If you override `payrollYear` / `payrollMonth` and the period is still future, the API returns `400`.
+
+Optional fields: `payrollYear`, `payrollMonth`, `submissionTime`, `levyDueYTD`, `levyAllowanceForFullYear`.
+
+### E2E: import via das-servicebus-tools
+
+1. Append a declaration as above (under-allowance YTD such as `1000` / `15000` is useful for last-positive filter checks).
+2. Trigger import (do **not** wait for the monthly levy job timer):
+
+```http
+POST {ServiceBusToolsBaseUrl}/api/ImportAccountLevyDeclarations
+Content-Type: application/json
+x-functions-key: {functionKey}
+
+{
+  "AccountId": "00000",
+  "PayeRef": "ABC/123245"
+}
+```
+
+See [das-servicebus-tools](https://github.com/SkillsFundingAgency/das-servicebus-tools) for `ImportAccountLevyDeclarations`.
+
+3. Verify Finance `LevyDeclaration` / last-positive date and (if deployed) Accounts `EmployerAccountLevyStatus.LastLevyDeclarationDate`.
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| Import succeeds but no new row | Declaration id already imported, or cleaner dropped a **future** period (before 20th of following month) |
+| Mock append 404 | empRef has no `declarations` document yet — seed via `LE_` sign-in first |
+| Mock GET missing row | Wrong empRef in body, or HMRC-shaped GET used unencoded `/` in path (`123%2FAB12345`) |
+| Tools 200 but nothing happens | Wrong AccountId/PayeRef; check MessageHandlers logs |
+
+Authenticated HMRC-shaped GET still requires empRef path encoding (`%2F`) and a Bearer token:
+
+```http
+GET {HmrcMockBaseUrl}/api/apprenticeship-levy/epaye/{urlEncodedEmpRef}/declarations?fromDate=yyyy-MM-dd
+Authorization: Bearer {token}
+```
+
 ## 🔗 External Dependencies
 
-_Add details of any external dependencies that are required for the project to run, this could be details of authentication providers, API's or stubs/test harnesses._
-
-_For Example_
-```
-* This utility uses the [das-audit](https://github.com/SkillsFundingAgency/das-audit) Api to log changes
-```
+* MongoDB for gateway users, emprefs, declarations and fractions
+* Redis for ASP.NET data protection key storage (as configured)
+* Azure Table Storage / Azurite for DAS configuration
+* Consumed by Employer Finance (and related) lower-env HMRC clients via `Hmrc.BaseUrl`
 
 ## Technologies
 
-_List the key technologies in-use in the project. This will give an indication as to the skill set required to understand and contribute to the project_
-
-_For Example_
-```
-* .NetCore 3.1
-* Azure Functions V3
-* CosmosDB
-* REDIS
-* NLog
-* Azure Table Storage
-* NUnit
-* Moq
-* FluentAssertions
-```
+* .NET 10 / ASP.NET Core
+* MongoDB.Driver
+* Redis / StackExchange.Redis
+* Azure Table Storage configuration (`SFA.DAS.Configuration.AzureTableStorage`)
+* NUnit / Moq / FluentAssertions
+* MediatR
 
 ## 🐛 Known Issues
 
-_Add any known issues with the project_
-
-_For Example_
-
-```
-* Fails when built under VS2019
-```
+* EmpRefs contain `/`. HMRC-shaped GET routes require URL encoding (`%2F`); the test append endpoint avoids this by accepting `empRef` in the JSON body.
+* Jira / Confluence badge links above still use template placeholders — replace when project keys / space URLs are confirmed.

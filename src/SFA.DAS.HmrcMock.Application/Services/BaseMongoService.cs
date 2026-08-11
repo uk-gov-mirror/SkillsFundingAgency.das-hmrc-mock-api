@@ -22,4 +22,9 @@ public class BaseMongoService<T>
     {
         await _collection.InsertOneAsync(entity);
     }
+
+    protected async Task ReplaceOne(FilterDefinition<T> filter, T entity)
+    {
+        await _collection.ReplaceOneAsync(filter, entity);
+    }
 }
