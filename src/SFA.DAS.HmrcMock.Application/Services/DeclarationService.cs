@@ -24,31 +24,20 @@ public class MongoLevyDeclarationService(IMongoDatabase database) : BaseMongoSer
 
     public async Task CreateDeclarationsAsync(string empref, int numberOfDeclarations, long amount)
     {
-        var declarations = new List<DeclarationResponse>();
-        long levyDueYtd = 0;
-
-        for (var i = numberOfDeclarations; i > 0; i--)
-        {
-            _ = long.TryParse(DateTime.Now.ToString("yssfffffff"), out var declarationId);
-            var submissionDate = DateTime.Now.AddMonths(-i);
-            levyDueYtd += amount;
-            
-            var payrollYear = GetPayrollYear(submissionDate);
-            var payrollMonth = GetPayrollMonth(submissionDate);
-
-            declarations.Add(new DeclarationResponse
+        var declarations = PayrollPeriodHelper.BuildHistoricalDeclarations(DateTime.Now, numberOfDeclarations, amount)
+            .Select(seed => new DeclarationResponse
             {
-                DeclarationId = declarationId,
-                SubmissionTime = submissionDate,
-                LevyDueYTD = levyDueYtd,
+                DeclarationId = seed.DeclarationId,
+                SubmissionTime = seed.SubmissionDate,
+                LevyDueYTD = seed.LevyDueYtd,
                 LevyAllowanceForFullYear = 15000,
                 PayrollPeriod = new PayrollPeriodResponse
                 {
-                    Year = payrollYear,
-                    Month = payrollMonth,
+                    Year = seed.PayrollYear,
+                    Month = seed.PayrollMonth,
                 }
-            });
-        }
+            })
+            .ToList();
 
         var levyDeclarationsDto = new LevyDeclarationResponse
         {
@@ -58,22 +47,6 @@ public class MongoLevyDeclarationService(IMongoDatabase database) : BaseMongoSer
 
         await CreateOne(levyDeclarationsDto);
     }
-
-    private static string GetPayrollYear(DateTime submissionDate)
-    {
-        // If the date is before April, it belongs to the next payroll year
-        int startYear = submissionDate.Month < 4 ? submissionDate.Year - 1 : submissionDate.Year;
-        int endYear = startYear + 1;
-    
-        // Format as "YY-YY"
-        return $"{startYear % 100:00}-{endYear % 100:00}";
-    }
-
-    private static int GetPayrollMonth(DateTime submissionDate)
-    {
-        return submissionDate.Month >= 4 ? submissionDate.Month - 3 : submissionDate.Month + 9;
-    }
-
 }
 
 [BsonIgnoreExtraElements]
